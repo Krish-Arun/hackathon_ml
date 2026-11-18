@@ -40,10 +40,13 @@ the API runs without retraining. To rebuild everything from raw data see
 
 ### Run the system (two laptops)
 
+`python -m uvicorn` rather than bare `uvicorn`: pip installs the launcher into
+Python's `Scripts/` directory, which is not on PATH by default on Windows.
+
 **Laptop 1 — model and API**
 ```bash
 export PATHSNAP_EVAL_PARTITION=evaluator_test   # falls back to student_test
-PYTHONPATH=src uvicorn pathsnap.api.main:app --host 0.0.0.0 --port 8000
+PYTHONPATH=src python -m uvicorn pathsnap.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 **Laptop 2 — evaluator UI**
@@ -109,6 +112,12 @@ results/          every number in the report: CSVs, figures, maps
 artifacts/        model.joblib, config.json, best_params.json
 docs/             explainers, build plan, viva recital, walkthrough
 ```
+
+### Dataset layout
+
+`list_trips` tolerates the redundant nesting the data ships with — both
+`Student folder/Student folder/...` and `evaluator_test/evaluator_test/...` are
+handled, so no files need moving before the demo.
 
 ## Notes on the data
 

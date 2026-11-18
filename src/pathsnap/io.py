@@ -117,6 +117,27 @@ def load_trip(trip_dir, partition: str) -> Trip:
 
 
 def list_trips(root, partition: str):
-    """All trip directories in a partition, sorted by trip_id."""
+    """
+    All trip directories in a partition, sorted by trip_id.
+
+    Tolerates the redundant nesting the dataset ships with. The provided data
+    arrives as "Student folder/Student folder/..." and the evaluator partition
+    as "evaluator_test/evaluator_test/...", so if a partition directory
+    contains no digit-named trip folders but does contain exactly one
+    subdirectory, we descend into it rather than requiring the files be moved
+    by hand on evaluation day.
+    """
     p = Path(root) / partition
-    return sorted([d for d in p.iterdir() if d.is_dir()], key=lambda d: d.name)
+    if not p.is_dir():
+        raise FileNotFoundError(f"partition directory not found: {p}")
+
+    for _ in range(3):      # bounded, so a pathological tree cannot loop
+        subdirs = sorted([d for d in p.iterdir() if d.is_dir()], key=lambda d: d.name)
+        trips = [d for d in subdirs if d.name.isdigit()]
+        if trips:
+            return trips
+        if len(subdirs) == 1:
+            p = subdirs[0]  # descend through the redundant level
+            continue
+        break
+    return subdirs

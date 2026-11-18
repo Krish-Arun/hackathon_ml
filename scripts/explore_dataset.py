@@ -19,7 +19,7 @@ from pathsnap.candidates import generate_candidates    # noqa: E402
 
 DATA_ROOT = os.environ.get(
     "PATHSNAP_DATA",
-    str(Path(__file__).resolve().parents[2] / "Student folder" / "Student folder"),
+    str(Path(__file__).resolve().parents[1] / "Student folder" / "Student folder"),
 )
 RADIUS = 200.0   # metres, candidate search radius under test
 K = 10           # candidates per observation

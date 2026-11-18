@@ -1,9 +1,17 @@
+# --- provided dataset and course materials: not our work, 91MB, not committed ---
+Student folder/
+PathSnap_student_materials/
+
+# --- regenerable intermediates (rebuild with scripts/build_dataset.py) ---
+data/processed/*.parquet
+
+# --- python ---
 __pycache__/
 *.pyc
 .venv/
 venv/
 .ipynb_checkpoints/
-# large intermediates - regenerate with scripts/build_dataset.py
-data/processed/*.parquet
+
+# --- misc ---
 *.log
 .env

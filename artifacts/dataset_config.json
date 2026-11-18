@@ -1,0 +1,29 @@
+{
+  "candidate_radius_m": 200.0,
+  "candidate_k": 10,
+  "arc_sample_spacing_m": 25.0,
+  "feature_columns": [
+    "dist_m",
+    "log_dist",
+    "t_along",
+    "arc_length_m",
+    "bearing_diff",
+    "bearing_diff_reverse",
+    "dist_minus_best",
+    "log_dist_ratio_best",
+    "dist_rank",
+    "bearing_rank",
+    "dist_softmax",
+    "n_candidates",
+    "speed_mps",
+    "dt_prev_s",
+    "dt_next_s",
+    "step_dist_m",
+    "connected_to_prev_best"
+  ],
+  "random_seed": 42,
+  "built_at": "2026-11-18T05:46:45.339185+00:00",
+  "git_commit": "95b9de4",
+  "n_rows": 2090297,
+  "n_trips": 90
+}

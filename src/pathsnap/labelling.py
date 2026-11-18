@@ -47,15 +47,25 @@ def observation_route_cost(trip):
     """
     Cost matrix: distance in metres from every observation to every route arc.
 
-    Shape (n_obs, n_route). This is the grid the DP walks over.
+    Shape (n_obs, n_route), float32. This is the grid the DP walks over.
+
+    float32 rather than float64 is deliberate: the biggest trip in this
+    dataset is 7,892 observations x 2,266 route arcs = 17.9M cells, which is
+    143MB at float64 and 72MB at float32. Distances are metres and we only
+    ever compare them, so float32 precision (~7 significant digits) is far
+    more than enough.
+
+    We deliberately do NOT return t_along here. Computing it would double the
+    peak memory for a value we only need at the ~n_obs cells the DP finally
+    selects, so it is computed afterwards in label_trip for those cells only.
     """
     ax, ay, bx, by = route_arc_geometry(trip)
     # Broadcast: observations down the rows, route positions across the columns.
-    dist, t_along = point_segment_distance(
+    dist, _ = point_segment_distance(
         trip.gps_x[:, None], trip.gps_y[:, None],
         ax[None, :], ay[None, :], bx[None, :], by[None, :],
     )
-    return dist, t_along
+    return dist.astype(np.float32)
 
 
 def monotonic_alignment(cost):
@@ -86,28 +96,26 @@ def monotonic_alignment(cost):
     path can be traced back at the end.
     """
     n_obs, n_route = cost.shape
-    dp = np.empty((n_obs, n_route), dtype=np.float64)
-    # back[i, j] = route position used by observation i-1 on the best path
-    # that puts observation i at position j.
+    # We only ever read dp[i-1], so we keep a single rolling row instead of
+    # the full (n_obs x n_route) table. `back` must be kept in full because
+    # the path is traced backwards at the end, but int32 is plenty for route
+    # indices and halves its footprint versus int64.
+    prev = cost[0].astype(np.float32)
     back = np.zeros((n_obs, n_route), dtype=np.int32)
-
-    dp[0] = cost[0]          # first observation: no history, pay its own cost
     positions = np.arange(n_route, dtype=np.int32)
 
     for i in range(1, n_obs):
-        prev = dp[i - 1]
-        # Running minimum of prev over 0..j, for every j at once.
+        # Running minimum of the previous row over 0..j, for every j at once.
         prefix_min = np.minimum.accumulate(prev)
-        # Which index achieved it: mark the places where prev equals the
-        # running min (i.e. a new best), then carry the latest such index
-        # forward with a running maximum.
+        # Which index achieved it: mark where prev equals the running min
+        # (a new best), then carry the latest such index forward.
         is_new_best = prev <= prefix_min
         back[i] = np.maximum.accumulate(np.where(is_new_best, positions, 0))
-        dp[i] = cost[i] + prefix_min
+        prev = cost[i] + prefix_min
 
     # Trace back from the cheapest ending position.
     assign = np.empty(n_obs, dtype=np.int64)
-    assign[-1] = int(np.argmin(dp[-1]))
+    assign[-1] = int(np.argmin(prev))
     for i in range(n_obs - 1, 0, -1):
         assign[i - 1] = back[i, assign[i]]
     return assign
@@ -132,15 +140,26 @@ def label_trip(trip):
     if trip.route is None:
         raise ValueError(f"trip {trip.trip_id} has no .route; cannot label")
 
-    cost, t_along = observation_route_cost(trip)
+    cost = observation_route_cost(trip)
     route_pos = monotonic_alignment(cost)
 
     rows = np.arange(trip.n_obs)
+    residual = cost[rows, route_pos].astype(np.float64)
+    del cost  # free the big grid before computing anything else
+
+    # t_along only for the arcs actually selected - n_obs values, not the
+    # whole grid.
+    ax, ay, bx, by = route_arc_geometry(trip)
+    _, t_along = point_segment_distance(
+        trip.gps_x, trip.gps_y,
+        ax[route_pos], ay[route_pos], bx[route_pos], by[route_pos],
+    )
+
     return {
         "arc_id": trip.route[route_pos],
         "route_pos": route_pos,
-        "residual_m": cost[rows, route_pos],
-        "t_along": t_along[rows, route_pos],
+        "residual_m": residual,
+        "t_along": t_along,
     }
 
 

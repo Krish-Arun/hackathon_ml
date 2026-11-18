@@ -209,19 +209,46 @@ def build_features(trip, cand):
     })
 
 
+# Observations whose assigned arc is further away than this are treated as
+# unreliably labelled. Justification: the nearest network arc is 4.1m away at
+# p50 and 13m at p95 across the dataset, so a label sitting 50m+ from its
+# observation cannot be explained by GPS error - it means the reference route
+# does not cover where the vehicle actually was.
+LABEL_RELIABLE_MAX_RESIDUAL_M = 50.0
+
+
 def attach_labels(df, labels):
     """
-    Add the target column: 1 where this candidate IS the arc the labeller
-    assigned to this observation, else 0.
+    Add the target column and a label-reliability flag.
+
+    label           1 where this candidate IS the arc the labeller assigned to
+                    this observation, else 0.
+    label_residual_m  how far the observation sits from its assigned arc.
+    label_reliable  False where that distance is implausibly large.
+
+    WHY THE RELIABILITY FLAG EXISTS:
+    Some trips' .route files describe only part of the journey the GPS
+    recorded - trip 33 drove 47.7km while its route spans 6.4km. The monotonic
+    alignment must still assign every observation somewhere, so observations
+    from the uncovered stretch get placed on arcs 120m+ away. Those labels are
+    not ground truth and training on them teaches the model nonsense.
+
+    These columns are METADATA, never features: they are derived from .route,
+    so feeding them to the model would be leakage of exactly the kind the
+    brief prohibits.
 
     Also returns candidate recall - the fraction of observations whose true
-    arc actually appears among its candidates. That is the real candidate miss
-    rate and it is the ceiling on Top-1 accuracy: if the right arc was never
-    shortlisted, no model can pick it.
+    arc appears among its candidates. That is the ceiling on Top-1 accuracy:
+    if the right arc was never shortlisted, no model can pick it.
     """
     true_arc = labels["arc_id"]
+    residual = labels["residual_m"]
+    obs = df["obs_idx"].to_numpy()
+
     df = df.copy()
-    df["label"] = (df["arc_id"].to_numpy() == true_arc[df["obs_idx"].to_numpy()]).astype(np.int8)
+    df["label"] = (df["arc_id"].to_numpy() == true_arc[obs]).astype(np.int8)
+    df["label_residual_m"] = residual[obs].astype(np.float32)
+    df["label_reliable"] = (residual[obs] <= LABEL_RELIABLE_MAX_RESIDUAL_M)
 
     hit = df.groupby("obs_idx")["label"].max()
     recall = float(hit.mean()) if len(hit) else 0.0

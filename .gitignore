@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+.ipynb_checkpoints/
+# large intermediates - regenerate with scripts/build_dataset.py
+data/processed/*.parquet
+*.log
+.env

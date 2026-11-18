@@ -132,7 +132,6 @@ src/pathsnap/
 scripts/          one runnable step each (see Reproducing)
 results/          every number in the report: CSVs, figures, maps
 artifacts/        model.joblib, config.json, best_params.json
-docs/             explainers, build plan, viva recital, walkthrough
 ```
 
 ### Dataset layout
@@ -158,10 +157,9 @@ a 6.4 km route; trip 54 is 168.8 km against 31.3 km. Affected observations land
 
 ## Documentation
 
-- `docs/explainers/` — one file per section, written for a newcomer
-- `docs/RECITAL-sections-1-to-5.md` — viva answers with traceable numbers
-- `docs/WALKTHROUGH-presentation.md` — 4-minute code walkthrough
-- `docs/PLAN.md` — the build plan
+The technical report in `report/` is the primary document. Every module carries
+a docstring explaining what it does and why that approach was chosen, and the
+scripts in `scripts/` are each one runnable step of the pipeline.
 
 ## Report
 

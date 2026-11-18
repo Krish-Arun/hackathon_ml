@@ -174,6 +174,8 @@ accuracy from **{clf_t1:.4f} to {hmm_t1:.4f}** (+{hmm_t1-clf_t1:.4f}) and route
 continuity from **{clf_c:.4f} to {hmm_c:.4f}** (+{hmm_c-clf_c:.4f}), improving
 Top-1 on {int((hmm.hmm_top1>hmm.clf_top1).sum())} of {len(hmm)} trips and degrading none.
 
+**Repository:** <https://github.com/Krish-Arun/hackathon_ml>
+
 All results in this report are generated from the committed result files by
 `scripts/make_report.py`; nothing is typed in by hand. Code version: `{commit}`.
 
@@ -640,7 +642,21 @@ feature construction, the classifier and Viterbi from the raw files, and the ser
 each stage with timings, so the evaluator can verify real work is performed for whichever
 trip they select. There are no hardcoded predictions.
 
-## 7.3 Measured performance
+## 7.3 Live two-laptop demonstration
+
+![Evaluator UI on Laptop 2, served by the API on Laptop 1](../results/figures/ui_demo_trip_00000023.png)
+
+The interface running on Laptop 2 against the API on Laptop 1, over the network.
+Trip 00000023 was selected by the evaluator: 458 observations matched to a 68-arc
+route through a 10,596-arc network, Top-1 accuracy 94.76% against 92.79% for the
+classifier alone (+1.97), and route continuity 97.81% against 96.28% (+1.53).
+Per-stage timings are shown in the panel and logged on Laptop 1.
+
+The status line retains an earlier `Failed to fetch`, from an attempt made before
+the inbound firewall rule was added on Laptop 1 — included rather than cropped,
+since it is an accurate record of the session.
+
+## 7.4 Measured performance
 
 End-to-end on student-test trip 40 ({int(hmm.loc[hmm.trip_id==40,'n_obs'].iloc[0]):,} observations,
 27,026 network arcs), served over HTTP:

@@ -15,3 +15,8 @@ venv/
 # --- misc ---
 *.log
 .env
+
+# --- internal team material: kept locally, not part of the submission ---
+docs/explainers/
+docs/RECITAL-*.md
+docs/WALKTHROUGH-*.md

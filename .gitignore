@@ -3,7 +3,10 @@ Student folder/
 PathSnap_student_materials/
 
 # --- regenerable intermediates (rebuild with scripts/build_dataset.py) ---
-data/processed/*.parquet
+# Note the recursive pattern: the build writes to data/processed/parts/, which
+# an un-anchored "data/processed/*.parquet" does NOT match.
+data/processed/
+*.parquet
 
 # --- python ---
 __pycache__/

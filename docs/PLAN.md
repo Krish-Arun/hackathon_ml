@@ -3,7 +3,7 @@
 Two parts. Part 1 gets us a trained, selected, tuned model. Part 2 turns it
 into a route and ships it behind an API.
 
-Every section below has: what we build, why it exists, and an explainer
+See `docs/explainers/` for one shareable file per section.
 written for someone who has never seen map-matching before.
 
 ---

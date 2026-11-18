@@ -66,14 +66,18 @@ def build_models():
         ),
         "random_forest": (
             RandomForestClassifier(
-                n_estimators=200,
+                # 100 rather than the usual few hundred: this machine has 2
+                # cores and a forest of 200 took ~95s per fit, which made the
+                # 6 fits of the CV protocol impractical. Out-of-bag variance
+                # at 100 trees is already small for a table this size.
+                n_estimators=100,
                 min_samples_leaf=20,   # guards against memorising single rows
                 class_weight="balanced_subsample",
                 n_jobs=-1,
                 random_state=SEED,
             ),
             "Ensemble / bagged trees",
-            "200 trees, min_samples_leaf=20, balanced subsample",
+            "100 trees, min_samples_leaf=20, balanced subsample",
         ),
         "lightgbm": (
             lgb.LGBMClassifier(

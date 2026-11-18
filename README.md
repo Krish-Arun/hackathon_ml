@@ -131,3 +131,16 @@ a 6.4 km route; trip 54 is 168.8 km against 31.3 km. Affected observations land
 - `docs/RECITAL-sections-1-to-5.md` — viva answers with traceable numbers
 - `docs/WALKTHROUGH-presentation.md` — 4-minute code walkthrough
 - `docs/PLAN.md` — the build plan
+
+## Report
+
+`report/PathSnap_Technical_Report.pdf` (16 pages). Regenerate with:
+
+```bash
+python scripts/make_report.py     # pulls every number from results/
+cd report && pandoc PathSnap_Technical_Report.md \
+  -o PathSnap_Technical_Report.pdf --pdf-engine=xelatex \
+  --resource-path=.:..:../results/figures \
+  -V geometry:margin=2.2cm -V fontsize=10pt -V mainfont="DejaVu Serif" \
+  -V monofont="DejaVu Sans Mono" --toc --toc-depth=2
+```

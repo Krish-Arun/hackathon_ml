@@ -110,6 +110,9 @@ def main():
     ax.set_ylabel("Top-1 accuracy")
     ax.set_title("Top-1 barely separates these models; calibration does")
     ax.invert_xaxis()
+    # Headroom so the topmost point's label does not collide with the title.
+    lo, hi = ax.get_ylim()
+    ax.set_ylim(lo - (hi - lo) * 0.05, hi + (hi - lo) * 0.18)
     strip_spines(ax)
     fig.savefig(FIG / "accuracy_vs_calibration.png"); plt.close(fig)
 

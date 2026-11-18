@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PathSnap — Route Reconstruction</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  :root{
+    --surface:#fcfcfb; --panel:#ffffff; --line:#e3e2de;
+    --ink:#0b0b0b; --ink2:#52514e;
+    --gps:#2a78d6; --predicted:#eb6834; --good:#008300; --warn:#eda100;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font:15px/1.5 system-ui,-apple-system,Segoe UI,sans-serif;
+       color:var(--ink);background:var(--surface);display:flex;height:100vh;overflow:hidden}
+  #side{width:370px;flex:0 0 370px;border-right:1px solid var(--line);
+        display:flex;flex-direction:column;background:var(--panel)}
+  header{padding:18px 20px 14px;border-bottom:1px solid var(--line)}
+  h1{margin:0;font-size:19px;font-weight:650;letter-spacing:-.01em}
+  .sub{color:var(--ink2);font-size:13px;margin-top:3px}
+  #status{font-size:12px;color:var(--ink2);margin-top:8px}
+  .dot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:6px;
+       background:var(--warn);vertical-align:middle}
+  .dot.ok{background:var(--good)} .dot.err{background:#e34948}
+  #triplist{overflow-y:auto;flex:1;padding:12px}
+  .trip{display:flex;justify-content:space-between;align-items:center;
+        padding:11px 13px;border:1px solid var(--line);border-radius:9px;
+        margin-bottom:7px;cursor:pointer;transition:.12s;background:var(--panel)}
+  .trip:hover{border-color:#b9b8b2;transform:translateX(2px)}
+  .trip.active{border-color:var(--predicted);box-shadow:0 0 0 2px #eb683422}
+  .trip.loading{opacity:.55;cursor:wait}
+  .tid{font-weight:600;font-variant-numeric:tabular-nums}
+  .tmeta{font-size:12px;color:var(--ink2)}
+  #results{border-top:1px solid var(--line);padding:16px 20px;display:none;
+           max-height:47vh;overflow-y:auto}
+  #results h2{margin:0 0 11px;font-size:13px;text-transform:uppercase;
+              letter-spacing:.06em;color:var(--ink2);font-weight:600}
+  .metric{display:flex;justify-content:space-between;padding:5px 0;font-size:14px}
+  .metric .k{color:var(--ink2)}
+  .metric .v{font-weight:600;font-variant-numeric:tabular-nums}
+  .delta{font-size:12px;color:var(--good);font-weight:600;margin-left:6px}
+  .rule{height:1px;background:var(--line);margin:11px 0}
+  #map{flex:1}
+  .legend{position:absolute;bottom:22px;left:22px;z-index:1000;background:#fcfcfbee;
+          border:1px solid var(--line);border-radius:8px;padding:10px 13px;font-size:13px}
+  .legend div{margin:3px 0}
+  .swatch{display:inline-block;width:18px;height:4px;vertical-align:middle;margin-right:8px}
+  .empty{color:var(--ink2);font-size:13px;padding:14px}
+</style>
+</head>
+<body>
+<div id="side">
+  <header>
+    <h1>PathSnap</h1>
+    <div class="sub">Distributed map-matching &amp; route reconstruction</div>
+    <div id="status"><span class="dot"></span>connecting to API…</div>
+  </header>
+  <div id="triplist"><div class="empty">Loading trips…</div></div>
+  <div id="results">
+    <h2>Evaluation result</h2>
+    <div id="metrics"></div>
+  </div>
+</div>
+<div id="map"></div>
+<div class="legend">
+  <div><span class="swatch" style="background:var(--gps)"></span>Raw GPS observations</div>
+  <div><span class="swatch" style="background:var(--predicted)"></span>Predicted route</div>
+</div>
+
+<script>
+// The API runs on Laptop 1. Override by appending ?api=http://<host>:8000
+const API = new URLSearchParams(location.search).get("api") || "http://localhost:8000";
+
+const map = L.map("map", {zoomControl:true}).setView([50.0, 8.6], 11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  {maxZoom:19, attribution:"&copy; OpenStreetMap contributors"}).addTo(map);
+
+let layers = [];
+const clearMap = () => { layers.forEach(l => map.removeLayer(l)); layers = []; };
+
+const setStatus = (text, cls="") =>
+  document.getElementById("status").innerHTML =
+    `<span class="dot ${cls}"></span>${text}`;
+
+const pct = v => v === null || v === undefined ? "—" : (100*v).toFixed(2) + "%";
+
+async function init(){
+  try{
+    const h = await (await fetch(`${API}/health`)).json();
+    setStatus(`${h.model} · ${h.n_trips} trips · ${h.partition}`, "ok");
+    const t = await (await fetch(`${API}/trips`)).json();
+    renderTrips(t.trips);
+  }catch(e){
+    setStatus(`cannot reach API at ${API}`, "err");
+    document.getElementById("triplist").innerHTML =
+      `<div class="empty">No connection to ${API}.<br><br>
+       Start it on Laptop 1 with:<br>
+       <code>uvicorn pathsnap.api.main:app --host 0.0.0.0 --port 8000</code><br><br>
+       then open this page with <code>?api=http://&lt;laptop-1-ip&gt;:8000</code></div>`;
+  }
+}
+
+function renderTrips(trips){
+  const el = document.getElementById("triplist");
+  el.innerHTML = "";
+  trips.forEach(t => {
+    const d = document.createElement("div");
+    d.className = "trip";
+    d.innerHTML = `<span class="tid">${t.trip_id}</span>
+                   <span class="tmeta">${t.size_kb ?? "?"} KB</span>`;
+    d.onclick = () => predict(t.trip_id, d);
+    el.appendChild(d);
+  });
+}
+
+async function predict(tripId, node){
+  document.querySelectorAll(".trip").forEach(n => n.classList.remove("active"));
+  node.classList.add("active","loading");
+  setStatus(`predicting ${tripId}…`);
+  try{
+    const r = await fetch(`${API}/predict`, {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({trip_id: tripId})
+    });
+    if(!r.ok) throw new Error(await r.text());
+    draw(await r.json());
+  }catch(e){
+    setStatus(`prediction failed: ${e.message}`, "err");
+  }finally{
+    node.classList.remove("loading");
+  }
+}
+
+function draw(d){
+  clearMap();
+  const gps = L.polyline(d.geometry.gps, {color:"#2a78d6", weight:1.5, opacity:.5});
+  const dots = L.layerGroup(d.geometry.gps.map(p =>
+    L.circleMarker(p, {radius:2, color:"#2a78d6", weight:0,
+                       fillOpacity:.65, fill:true})));
+  const route = L.polyline(d.geometry.predicted, {color:"#eb6834", weight:5, opacity:.9});
+  [gps, dots, route].forEach(l => { l.addTo(map); layers.push(l); });
+  map.fitBounds(route.getBounds().isValid() ? route.getBounds() : gps.getBounds(),
+                {padding:[35,35]});
+
+  const m = d.metrics, out = [];
+  const row = (k,v,extra="") =>
+    `<div class="metric"><span class="k">${k}</span><span class="v">${v}${extra}</span></div>`;
+
+  out.push(row("Trip", d.trip_id));
+  out.push(row("Observations", d.n_observations.toLocaleString()));
+  out.push(row("Network arcs", d.n_arcs_in_network.toLocaleString()));
+  out.push(row("Arcs in route", d.predicted_route_length));
+  out.push('<div class="rule"></div>');
+
+  if(m.scored){
+    const gain = v => v ? `<span class="delta">+${(100*v).toFixed(2)}</span>` : "";
+    out.push(row("Top-1 accuracy", pct(m.top1_accuracy),
+                 gain(m.top1_accuracy - m.top1_accuracy_classifier_only)));
+    out.push(row("  classifier only", pct(m.top1_accuracy_classifier_only)));
+    out.push(row("Route continuity", pct(m.route_continuity),
+                 gain(m.route_continuity - m.route_continuity_classifier_only)));
+    out.push(row("  classifier only", pct(m.route_continuity_classifier_only)));
+    out.push(row("Observations scored", m.n_observations_scored.toLocaleString()));
+  }else{
+    out.push(row("Scoring", "unavailable"));
+    out.push(`<div class="empty" style="padding:4px 0">${m.reason}</div>`);
+  }
+  out.push('<div class="rule"></div>');
+  const t = d.timings;
+  out.push(row("Candidates", t.candidates_s + "s"));
+  out.push(row("Features", t.features_s + "s"));
+  out.push(row("Classifier", t.classifier_s + "s"));
+  out.push(row("Viterbi", t.viterbi_s + "s"));
+  out.push(row("Total", t.total_s + "s"));
+
+  document.getElementById("metrics").innerHTML = out.join("");
+  document.getElementById("results").style.display = "block";
+  setStatus(`${d.trip_id} done in ${d.timings.total_s}s`, "ok");
+}
+
+init();
+</script>
+</body>
+</html>

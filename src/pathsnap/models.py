@@ -24,7 +24,25 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 import lightgbm as lgb
 
+import json
+from pathlib import Path
+
 SEED = 42
+_ARTIFACTS = Path(__file__).resolve().parents[2] / "artifacts"
+
+
+def tuned_lightgbm_params():
+    """
+    Best hyperparameters found by the Bayesian search (scripts/optimise.py).
+
+    Loaded from disk rather than pasted in, so the model in the repo always
+    matches the recorded search and cannot silently drift from it.
+    """
+    path = _ARTIFACTS / "best_params.json"
+    if not path.exists():
+        return None
+    with open(path) as f:
+        return json.load(f)["best_params"]
 
 
 def build_models():
@@ -35,7 +53,8 @@ def build_models():
     Configurations are deliberately modest: this is the untuned comparison,
     and section 9 tunes only the winner.
     """
-    return {
+    tuned = tuned_lightgbm_params()
+    models = {
         "logistic_regression": (
             Pipeline([
                 ("scale", StandardScaler()),
@@ -113,3 +132,16 @@ def build_models():
             "64-32 hidden, ReLU, Adam, early stopping",
         ),
     }
+
+    # The tuned variant is registered only once the search has produced
+    # best_params.json, so the untuned comparison can be reproduced from a
+    # clean checkout without it.
+    if tuned is not None:
+        models["lightgbm_tuned"] = (
+            lgb.LGBMClassifier(**tuned, subsample_freq=1, random_state=SEED,
+                               n_jobs=-1, verbose=-1),
+            "Boosting / gradient-boosted trees (Bayesian-tuned)",
+            ", ".join(f"{k}={round(v, 4) if isinstance(v, float) else v}"
+                      for k, v in tuned.items()),
+        )
+    return models

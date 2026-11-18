@@ -1,0 +1,15 @@
+{
+  "best_value_logloss": 0.103246842607657,
+  "best_params": {
+    "num_leaves": 54,
+    "learning_rate": 0.02072887035556029,
+    "n_estimators": 350,
+    "min_child_samples": 23,
+    "subsample": 0.7749354638244956,
+    "colsample_bytree": 0.540279953913361,
+    "reg_lambda": 1.4260266102711874
+  },
+  "n_trials": 20,
+  "objective": "mean log loss over 3 trip-grouped CV folds",
+  "n_folds": 3
+}

@@ -129,3 +129,30 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def hmm_figure():
+    """Classifier-only vs classifier+Viterbi, per trip (report section 5)."""
+    import matplotlib.pyplot as _plt
+    from pathsnap.viz.style import SERIES
+    apply_style()
+    df = pd.read_csv(ROOT / "results" / "hmm_comparison.csv")
+    df["trip"] = df.trip_id.astype(str).str.lstrip("0").replace("", "0")
+
+    fig, axes = _plt.subplots(1, 2, figsize=(12, 4.2))
+    x = np.arange(len(df)); w = 0.38
+    for ax, (a, b, title) in zip(axes, [
+        ("clf_top1", "hmm_top1", "Top-1 accuracy"),
+        ("clf_continuity", "hmm_continuity", "Route continuity"),
+    ]):
+        ax.bar(x - w/2, df[a], w, color=SERIES[3], label="Classifier only")
+        ax.bar(x + w/2, df[b], w, color=SERIES[0], label="Classifier + HMM/Viterbi")
+        ax.set_xticks(x); ax.set_xticklabels(df.trip, rotation=0)
+        ax.set_xlabel("Student-test trip"); ax.set_title(title)
+        ax.set_ylim(0, 1.05); strip_spines(ax); ax.grid(axis="x", visible=False)
+        gain = np.average(df[b] - df[a], weights=df.n_obs)
+        ax.annotate(f"weighted gain {gain:+.3f}", xy=(0.02, 0.04),
+                    xycoords="axes fraction", fontsize=9, color=TEXT_SECONDARY)
+    axes[0].legend(ncol=2, loc="upper center", bbox_to_anchor=(1.05, -0.16))
+    fig.savefig(FIG / "hmm_vs_classifier.png"); _plt.close(fig)
+    print("wrote hmm_vs_classifier.png")

@@ -50,12 +50,34 @@ PYTHONPATH=src python -m uvicorn pathsnap.api.main:app --host 0.0.0.0 --port 800
 ```
 
 **Laptop 2 — evaluator UI**
+
+Needs only Python — `serve_ui.py` uses the standard library and Leaflet is
+vendored in `src/pathsnap/ui/vendor/`, so **no `pip install` is required** and
+the interface works without internet (map tiles will be blank; the GPS trail and
+predicted route still render).
+
 ```bash
+git clone <repo-url> && cd hackathon_ml
 python scripts/serve_ui.py --port 8080
 ```
 Open `http://localhost:8080/?api=http://<laptop-1-ip>:8000`, pick a trip, and
 the predicted route and metrics appear. Laptop 1's console logs every request
 with per-stage timings.
+
+### Networking checklist
+
+1. Both laptops on the same network. Find Laptop 1's address with `ipconfig`
+   (Windows) and use the IPv4 of the adapter connected to that network.
+2. The API must bind `--host 0.0.0.0`, not `localhost`, or Laptop 2 cannot
+   reach it.
+3. **Windows Firewall blocks inbound 8000 by default.** Either accept the
+   prompt that appears the first time uvicorn runs (tick *Private networks*),
+   or pre-authorise it from an elevated PowerShell:
+   `New-NetFirewallRule -DisplayName "PathSnap API" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow`
+4. Verify from Laptop 2 before relying on it:
+   `curl http://<laptop-1-ip>:8000/health`
+   Some phone hotspots isolate clients from each other; if this fails while
+   both laptops have internet, that is the cause.
 
 ### Endpoints
 

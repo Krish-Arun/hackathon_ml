@@ -4,8 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>PathSnap — Route Reconstruction</title>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet is vendored locally so the UI works without internet access.
+     The CDN is only a fallback if the local copy is somehow missing. -->
+<link rel="stylesheet" href="vendor/leaflet.css">
+<script src="vendor/leaflet.js"></script>
+<script>
+  if (typeof L === "undefined") {
+    document.write('<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">');
+    document.write('<scr'+'ipt src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></scr'+'ipt>');
+  }
+</script>
 <style>
   :root{
     --surface:#fcfcfb; --panel:#ffffff; --line:#e3e2de;
@@ -64,6 +72,12 @@
   </div>
 </div>
 <div id="map"></div>
+<div id="basemap-warning" style="display:none;position:absolute;top:14px;right:14px;
+     z-index:1000;background:#fff8e5;border:1px solid #eda100;border-radius:8px;
+     padding:9px 13px;font-size:13px;max-width:290px">
+  <b>Basemap tiles unavailable</b><br>No internet connection. The route and GPS
+  trail still render correctly.
+</div>
 <div class="legend">
   <div><span class="swatch" style="background:var(--gps)"></span>Raw GPS observations</div>
   <div><span class="swatch" style="background:var(--predicted)"></span>Predicted route</div>
@@ -74,8 +88,16 @@
 const API = new URLSearchParams(location.search).get("api") || "http://localhost:8000";
 
 const map = L.map("map", {zoomControl:true}).setView([50.0, 8.6], 11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+const tiles = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
   {maxZoom:19, attribution:"&copy; OpenStreetMap contributors"}).addTo(map);
+// Without internet the basemap will not load, but the GPS trail and the
+// predicted route still render on a blank canvas - the demo is not blocked.
+let tileWarned = false;
+tiles.on("tileerror", () => {
+  if (tileWarned) return;
+  tileWarned = true;
+  document.getElementById("basemap-warning").style.display = "block";
+});
 
 let layers = [];
 const clearMap = () => { layers.forEach(l => map.removeLayer(l)); layers = []; };

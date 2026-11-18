@@ -11,7 +11,11 @@ cross-origin fetches from file:// regardless of the server's CORS headers.
 import argparse, functools, http.server, socketserver
 from pathlib import Path
 
-UI_DIR = Path(__file__).resolve().parents[1] / "src" / "pathsnap" / "ui"
+# Normally the UI lives in the repo. But Laptop 2 may only have this script
+# and index.html copied next to each other, so fall back to our own directory.
+_HERE = Path(__file__).resolve().parent
+_IN_REPO = _HERE.parents[0] / "src" / "pathsnap" / "ui"
+UI_DIR = _IN_REPO if (_IN_REPO / "index.html").exists() else _HERE
 
 
 def main(port):
